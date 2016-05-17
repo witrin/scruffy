@@ -49,6 +49,7 @@ Comment:        // Comments
 
 import textwrap
 import common
+import xml.etree.ElementTree as etree
 
 def escape_token_escapes(spec):
     return spec.replace('\\[', '\\u005b').replace('\\]', '\\u005d')
@@ -95,6 +96,7 @@ def yumlExpr(spec):
             if part.startswith('note:'):
                 expr.append(('note', unescape_token_escapes(part[5:].strip()), bg))
             elif '[' in part and ']' in part:
+        
                 p = part.split('[')
                 part = p[0]
                 nodes = [node.replace(']', '').strip() for node in p[1:]]
@@ -255,16 +257,26 @@ def transform(expr, fout, options):
 
     if options.png or options.svg:
         import subprocess
+        import StringIO
+
+        svg = subprocess.Popen(['dot', '-Tsvg'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=dot)[0]
+        
+        etree.register_namespace('', 'http://www.w3.org/2000/svg')
+        root = etree.parse(StringIO.StringIO(svg)).getroot()
+        
+        common.clear(root)
 
         if options.scruffy:
-            import StringIO
             import scruffy
 
-            svg = subprocess.Popen(['dot', '-Tsvg'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=dot)[0]
-            scruffy.transform(StringIO.StringIO(svg), fout, options)
-        elif options.png:
-            subprocess.Popen(['dot', '-Tpng'], stdin=subprocess.PIPE, stdout=fout).communicate(input=dot)
+            scruffy.transform(root, options)
+
+        svg = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n' + etree.tostring(root) + '\n'
+
+        if options.png:
+            png = subprocess.Popen(['convert', '-', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=svg)[0]
+            fout.write(png)
         elif options.svg:
-            subprocess.Popen(['dot', '-Tsvg'], stdin=subprocess.PIPE, stdout=fout).communicate(input=dot)
+            fout.write(svg)
     else:
         fout.write(dot)

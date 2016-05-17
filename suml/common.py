@@ -93,3 +93,10 @@ def crop(fin, fout):
     diff = ImageChops.difference(img, bg)
     area = img.crop(diff.getbbox())
     area.save(fout, 'png')
+
+def clear(root):
+    g = root.findall('.//{http://www.w3.org/2000/svg}g[@id=\'graph0\']')[0]
+    polygons = root.findall('.//{http://www.w3.org/2000/svg}g[@id=\'graph0\']/{http://www.w3.org/2000/svg}polygon')
+
+    for polygon in polygons:
+        g.remove(polygon)

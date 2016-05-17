@@ -26,6 +26,7 @@
 '''
 
 import os
+import xml.etree.ElementTree as etree
 from . import common
 
 sequence_pic = os.path.join(os.path.dirname(__file__), 'sequence.pic')
@@ -129,20 +130,24 @@ def transform(expr, fout, options):
         import subprocess
         import StringIO
 
+        svg = subprocess.Popen(['pic2plot', '-Tsvg'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=pic)[0]
+        
+        etree.register_namespace('', 'http://www.w3.org/2000/svg')
+        root = etree.parse(StringIO.StringIO(svg)).getroot()
+
+        common.clear(root)
+
         if options.scruffy:
             import scruffy
 
-            svg = subprocess.Popen(['pic2plot', '-Tsvg'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=pic)[0]
-            if options.png:
-                tocrop = StringIO.StringIO()
-                scruffy.transform(StringIO.StringIO(svg), tocrop, options)
-                common.crop(StringIO.StringIO(tocrop.getvalue()), fout)
-            else:
-                scruffy.transform(StringIO.StringIO(svg), fout, options)
-        elif options.png:
-            png = subprocess.Popen(['pic2plot', '-Tpng'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=pic)[0]
-            common.crop(StringIO.StringIO(png), fout)
+            scruffy.transform(root, options)
+        
+        svg = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n' + etree.tostring(root) + '\n'
+        
+        if options.png:
+            png = subprocess.Popen(['convert', '-', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=svg)[0]
+            fout.write(png)
         elif options.svg:
-            subprocess.Popen(['pic2plot', '-Tsvg'], stdin=subprocess.PIPE, stdout=fout).communicate(input=pic)
+            fout.write(svg)
     else:
         fout.write(pic)

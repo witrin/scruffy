@@ -123,10 +123,6 @@ def transformText(elem, font):
     elem.attrib['font-family'] = font
 
 def transformAddShade(root, elem):
-    if elem.get('fill', '') == 'white' and elem.get('stroke', '') == 'white':
-        # Graphviz puts everything in one big polygon. Skip it!
-        return
-
     # Need to prepend element of the same shape
     shade = root.makeelement(elem.tag, elem.attrib)
     for i, child in enumerate(root):
@@ -143,10 +139,6 @@ def transformAddShade(root, elem):
     #shade.attrib['style'] = 'opacity:0.75;filter:url(#filterBlur)'
 
 def transformAddGradient(elem):
-    if elem.get('fill', '') == 'white' and elem.get('stroke', '') == 'white':
-        # Graphviz puts everything in one big polygon. Skip it!
-        return
-
     fill = elem.get('fill', '')
     if fill == 'none':
         elem.attrib['fill'] = 'white'
@@ -156,6 +148,7 @@ def transformAddGradient(elem):
 
 def _transform(root, options, level=0):
     for child in root[:]:
+
         if child.tag == ns('rect'):
             transformRect2Polygon(child)
         elif child.tag == ns('line'):
@@ -191,56 +184,10 @@ def _transform(root, options, level=0):
             etree.SubElement(gradient, ns('stop'), {'offset':'0%', 'style':'stop-color:white;stop-opacity:1'})
             etree.SubElement(gradient, ns('stop'), {'offset':'50%', 'style':'stop-color:%s;stop-opacity:1' % name})
 
-def transform(fin, fout, options):
-    '''
-        Read svg from file object fin, write output to file object fout
-
-        options.png (boolean)   Try to produce PNG output
-        options.font (string)   Font family to use (Ubuntu: Purisa)
-    '''
-    etree.register_namespace('', 'http://www.w3.org/2000/svg')
-    root = etree.parse(fin).getroot()
-
-
+def transform(root, options):
     w, h = root.attrib.get('width', ''), root.attrib.get('height', '')
     if w.endswith('in') or h.endswith('in'):
         global gCoordinates
         gCoordinates = 'in'
 
     _transform(root, options)
-
-    scruffySvg = etree.tostring(root) + '\n'
-
-    if options.png:
-        import subprocess
-        png = subprocess.Popen(['rsvg-convert', '-f', 'png'], stdin=subprocess.PIPE, stdout=subprocess.PIPE).communicate(input=scruffySvg)[0]
-        fout.write(png)
-    else:
-        fout.write(scruffySvg)
-
-def main():
-    import optparse
-
-    parser = optparse.OptionParser(usage='usage: %prog [options] [input file]')
-    parser.add_option('-p', '--png', action='store_true', dest='png',
-                    help='create a png file (requires rsvg-convert)')
-    parser.add_option('-o', '--output', action='store', dest='output',
-                    help='output file name')
-    parser.add_option('--font-family', action='store', dest='font',
-                    help='set output font family')
-    (options, args) = parser.parse_args()
-
-    if len(args) > 1:
-        parser.error('Too many arguments')
-
-    fin, fout = sys.stdin, sys.stdout
-    if options.output:
-        fout = open(options.output, 'wb')
-
-    if len(args) > 0:
-        fin = open(args[0])
-
-    transform(fin, fout, options)
-
-if __name__ == '__main__':
-    main()
